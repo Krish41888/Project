@@ -1,29 +1,58 @@
-name: MLOps Pipeline
+name: Tourism Package MLOps Pipeline
 
 on:
+  # Triggers the workflow on push events to the main branch
   push:
-    branches: [ "main" ]
+    branches:
+      - main
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
 
 jobs:
-  build:
+  ml_pipeline:
     runs-on: ubuntu-latest
+    
+    # Required permissions to allow GitHub Actions to push code back to your repo
+    permissions:
+      contents: write 
+
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
         with:
-          python-version: "3.10"
+          fetch-depth: 0 # Fetches all history so git push works correctly
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Install Dependencies
+        working-directory: ./TourismPredictionProject
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      - name: Execute Machine Learning Steps
+        working-directory: ./TourismPredictionProject
+        run: |
+          # Note: Replace 'app.py' with your actual pipeline execution script if different
+          # (e.g., python data_prep.py && python train.py)
+          python app.py
+        env:
+          # Assuming you need your Hugging Face token for the dataset/model hub operations
+          HF_TOKEN: ${{ secrets.HF_TOKEN }} 
 
-      - name: Run preprocessing
-        run: python scripts/preprocess.py
-
-      - name: Train model
-        run: python scripts/train.py
-
-      - name: Evaluate model
-        run: python scripts/evaluate.py
+      - name: Commit and Push Updates to Main
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # Stage all new or modified files
+          git add .
+          
+          # Commit only if there are changes to avoid workflow errors
+          git diff --quiet && git diff --staged --quiet || git commit -m "chore: automated artifact updates from MLOps pipeline"
+          
+          # Push the updates back to the main branch
+          git push origin main
